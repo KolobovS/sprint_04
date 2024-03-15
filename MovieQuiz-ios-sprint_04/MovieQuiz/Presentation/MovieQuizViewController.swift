@@ -1,34 +1,24 @@
 import UIKit
 
 final class MovieQuizViewController: UIViewController {
-    // MARK: - Lifecycle
-
-    
-    // для состояния "Вопрос показан"
-    private struct QuizStepViewModel {
+    // MARK: - Structs
+    private struct MovieQuizViewModel {
         let image: UIImage
         let question: String
         let questionNumber: String
     }
-    
-    // для состояния "Результат квиза"
     private struct QuizResultsViewModel {
         let title: String
         let text: String
         let buttonText: String
     }
-    
     private struct QuizQuestion {
-        // строка с названием фильма,
-        // совпадает с названием картинки афиши фильма в Assets
         let image: String
-        // строка с вопросом о рейтинге фильма
         let text: String
-        // булевое значение (true, false), правильный ответ на вопрос
         let correctAnswer: Bool
     }
     
-    
+    // MARK: - Properties
     private var currentQuestionIndex = 0
     private var correctAnswers = 0
     
@@ -76,43 +66,67 @@ final class MovieQuizViewController: UIViewController {
             correctAnswer: false)
     ]
     
-    @IBOutlet private var imageView: UIImageView!
-    @IBOutlet private var textLabel: UILabel!
-    @IBOutlet private var counterLabel: UILabel!
+    @IBOutlet private weak var imageView: UIImageView!
+    @IBOutlet private weak var textLabel: UILabel!
+    @IBOutlet private weak var counterLabel: UILabel!
+    @IBOutlet private weak var yesButton: UIButton!
+    @IBOutlet private weak var noButton: UIButton!
     
-    @IBOutlet var yesButton: UIButton!
-    @IBOutlet var noButton: UIButton!
-    
+    // MARK: - Life cycle
     override func viewDidLoad() {
         super.viewDidLoad()
         let currentQuestion = questions[currentQuestionIndex]
         show(quiz: convert(model: currentQuestion))
     }
     
-    private func convert(model: QuizQuestion) -> QuizStepViewModel {
-        let viewModel = QuizStepViewModel(image: UIImage(named: model.image) ?? UIImage(), question: model.text, questionNumber: "\(currentQuestionIndex + 1)/\(questions.count)")
-        return viewModel
+    // MARK: - Actions
+    @IBAction private func yesButtonClicked(_ sender: UIButton) {
+        feedbackGenerator.impactOccurred()
+        showAnswerResult(isCorrect: questions[currentQuestionIndex].correctAnswer == true)
     }
     
-    private func showAnswerResult(isCorrect: Bool) {
-        yesButton.isEnabled = false
-        noButton.isEnabled = false
+    @IBAction private func noButtonClicked(_ sender: UIButton) {
+        feedbackGenerator.impactOccurred()
+        showAnswerResult(isCorrect: questions[currentQuestionIndex].correctAnswer == false)
+    }
+}
+
+// MARK: - For show quiz round
+extension MovieQuizViewController {
+    private func show(quiz result: QuizResultsViewModel) {
+        let alert = UIAlertController(title: result.title,
+                                      message: result.text,
+                                      preferredStyle: .alert)
         
-        // Установка рамки
-        imageView.layer.masksToBounds = true
-        imageView.layer.borderWidth = 8
-        imageView.layer.borderColor = isCorrect ? UIColor.ypGreen.cgColor : UIColor.ypRed.cgColor
-        imageView.layer.cornerRadius = 20
-        correctAnswers += isCorrect ? 1 : 0
-        
-        
-        // Убирание рамки через секунду
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            // Переход к следующему вопросу или результатам
-            self.showNextQuestionOrResults()
+        // Create alert
+        let action = UIAlertAction(title: result.buttonText, style: .default) { _ in
+            self.currentQuestionIndex = 0
+            self.correctAnswers = 0
+            let currentQuestion = self.questions[self.currentQuestionIndex]
+            self.show(quiz: self.convert(model: currentQuestion))
         }
+        alert.addAction(action)
+        self.present(alert, animated: true, completion: nil)
     }
     
+    private func show(quiz step: MovieQuizViewModel) {
+        let newImage = step.image
+        // Set change image animation
+        UIView.transition(with: imageView,
+                          duration: 0.5,
+                          options: .transitionCrossDissolve,
+                          animations: {
+            self.imageView.image = newImage
+            self.imageView.layer.borderWidth = 0
+        },
+                          completion: nil)
+        textLabel.text = step.question
+        counterLabel.text = step.questionNumber
+    }
+}
+
+// MARK: - Show next question or result
+extension MovieQuizViewController {
     private func showNextQuestionOrResults() {
         if currentQuestionIndex == questions.count - 1 {
             let res = QuizResultsViewModel(title: "Этот раунд окончен!", text: "Ваш результат \(correctAnswers)/10", buttonText: "Сыграть ещё раз")
@@ -125,57 +139,34 @@ final class MovieQuizViewController: UIViewController {
         yesButton.isEnabled = true
         noButton.isEnabled = true
     }
-    
-    private func show(quiz step: QuizStepViewModel) {
-        let newImage = step.image
-        // Анимация смены изображения с плавным переходом
-        UIView.transition(with: imageView,
-                          duration: 0.5, // Длительность анимации в секундах
-                          options: .transitionCrossDissolve, // Тип анимации (плавное появление/исчезновение)
-                          animations: {
-            self.imageView.image = newImage
-            self.imageView.layer.borderWidth = 0
-        },
-                          completion: nil)
-        textLabel.text = step.question
-        counterLabel.text = step.questionNumber
-    }
-    
-    
-    // приватный метод для показа результатов раунда квиза
-    // принимает вью модель QuizResultsViewModel и ничего не возвращает
-    private func show(quiz result: QuizResultsViewModel) {
-        let alert = UIAlertController(title: result.title, // заголовок всплывающего окна
-                                      message: result.text, // текст во всплывающем окне
-                                      preferredStyle: .alert)
-        
-        // создаём для алерта кнопку с действием
-        // в замыкании пишем, что должно происходить при нажатии на кнопку
-        let action = UIAlertAction(title: result.buttonText, style: .default) { _ in
-            self.currentQuestionIndex = 0
-            self.correctAnswers = 0
-            let currentQuestion = self.questions[self.currentQuestionIndex]
-            self.show(quiz: self.convert(model: currentQuestion))
-        }
-        
-        // добавляем в алерт кнопку
-        alert.addAction(action)
-        
-        // показываем всплывающее окно
-        self.present(alert, animated: true, completion: nil)
-    }
-    
-    @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        feedbackGenerator.impactOccurred()
-        showAnswerResult(isCorrect: questions[currentQuestionIndex].correctAnswer == true)
-    }
-    
-    @IBAction private func noButtonClicked(_ sender: UIButton) {
-        feedbackGenerator.impactOccurred()
-        showAnswerResult(isCorrect: questions[currentQuestionIndex].correctAnswer == false)
-    }
-    
 }
+
+// MARK: - Show result answer
+extension MovieQuizViewController {
+    private func showAnswerResult(isCorrect: Bool) {
+        yesButton.isEnabled = false
+        noButton.isEnabled = false
+        
+        imageView.layer.masksToBounds = true
+        imageView.layer.borderWidth = 8
+        imageView.layer.borderColor = isCorrect ? UIColor.ypgreen.cgColor : UIColor.ypred.cgColor
+        imageView.layer.cornerRadius = 20
+        correctAnswers += isCorrect ? 1 : 0
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.showNextQuestionOrResults()
+        }
+    }
+}
+
+// MARK: - Convert to view model
+extension MovieQuizViewController {
+    private func convert(model: QuizQuestion) -> MovieQuizViewModel {
+        let viewModel = MovieQuizViewModel(image: UIImage(named: model.image) ?? UIImage(), question: model.text, questionNumber: "\(currentQuestionIndex + 1)/\(questions.count)")
+        return viewModel
+    }
+}
+
 
 /*
  Mock-данные
